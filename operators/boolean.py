@@ -26,8 +26,8 @@ class ModifierProperties():
     material_mode: bpy.props.EnumProperty(
         name = "Materials",
         description = "Method for setting materials on the new faces",
-        items = (('INDEX', "Index Based", "Set the material on new faces based on the order of the material slot lists. If a material doesn’t exist on the\n"
-                  "modifier object, the face will use the same material slot or the first if the object doesn’t have enough slots."),
+        items = (('INDEX', "Index Based", "Set the material on new faces based on the order of the material slot lists. If a material doesn't exist on the\n"
+                  "modifier object, the face will use the same material slot or the first if the object doesn't have enough slots."),
                  ('TRANSFER', "Transfer", "Transfer materials from non-empty slots to the result mesh, adding new materials as necessary.\n"
                   "For empty slots, fall back to using the same material index as the operand mesh.")),
         default = 'INDEX',
@@ -161,6 +161,43 @@ class OBJECT_OT_boolean_brush_slice(bpy.types.Operator, BrushBoolean):
     mode = "SLICE"
 
 
+class OBJECT_OT_boolean_brush_multi_difference(bpy.types.Operator, BrushBoolean):
+    bl_idname = "object.boolean_brush_multi_difference"
+    bl_label = "Boolean Multi-Difference (Brush)"
+    bl_description = "Subtract active object from all selected objects (as modifier)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return basic_poll(context)
+
+    mode = "DIFFERENCE"
+
+    def execute(self, context):
+        prefs = context.preferences.addons[base_package].preferences
+        active_obj = context.active_object
+        selected_objects = [obj for obj in context.selected_objects if obj != active_obj]
+
+        # Create a duplicate of the active object for each target
+        for target_obj in selected_objects:
+            # Create a duplicate of the active object
+            duplicate = active_obj.copy()
+            duplicate.data = active_obj.data.copy()
+            context.collection.objects.link(duplicate)
+            
+            # Set up the boolean modifier
+            set_cutter_properties(context, target_obj, duplicate, self.mode, parent=prefs.parent, collection=prefs.use_collection)
+            add_boolean_modifier(self, context, target_obj, duplicate, self.mode, prefs.solver, pin=prefs.pin)
+
+            context.view_layer.objects.active = target_obj
+            target_obj.booleans.canvas = True
+
+        # Delete the original active object
+        bpy.data.objects.remove(active_obj)
+
+        return {'FINISHED'}
+
+
 
 #### ------------------------------ /auto_boolean/ ------------------------------ ####
 
@@ -291,6 +328,46 @@ class OBJECT_OT_boolean_auto_slice(bpy.types.Operator, AutoBoolean):
     mode = "SLICE"
 
 
+class OBJECT_OT_boolean_auto_multi_difference(bpy.types.Operator, AutoBoolean):
+    bl_idname = "object.boolean_auto_multi_difference"
+    bl_label = "Boolean Multi-Difference (Auto)"
+    bl_description = "Subtract active object from all selected objects (applied)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return basic_poll(context)
+
+    mode = "DIFFERENCE"
+
+    def execute(self, context):
+        prefs = context.preferences.addons[base_package].preferences
+        active_obj = context.active_object
+        selected_objects = [obj for obj in context.selected_objects if obj != active_obj]
+
+        # Create a duplicate of the active object for each target
+        for target_obj in selected_objects:
+            # Create a duplicate of the active object
+            duplicate = active_obj.copy()
+            duplicate.data = active_obj.data.copy()
+            context.collection.objects.link(duplicate)
+            
+            # Add Modifier (& Apply)
+            add_boolean_modifier(self, context, target_obj, duplicate, self.mode, prefs.solver, apply=True, pin=prefs.pin, single_user=True)
+
+            # Transfer Children
+            for child in duplicate.children:
+                change_parent(child, target_obj)
+
+            # Delete Cutter
+            delete_cutter(duplicate)
+
+        # Delete the original active object
+        bpy.data.objects.remove(active_obj)
+
+        return {'FINISHED'}
+
+
 
 #### ------------------------------ REGISTRATION ------------------------------ ####
 
@@ -301,6 +378,8 @@ classes = [
     OBJECT_OT_boolean_brush_difference,
     OBJECT_OT_boolean_brush_intersect,
     OBJECT_OT_boolean_brush_slice,
+    OBJECT_OT_boolean_brush_multi_difference,
+    OBJECT_OT_boolean_auto_multi_difference,
 
     OBJECT_OT_boolean_auto_union,
     OBJECT_OT_boolean_auto_difference,
@@ -334,6 +413,10 @@ def register():
     kmi.active = True
     addon_keymaps.append((km, kmi))
 
+    kmi = km.keymap_items.new("object.boolean_brush_multi_difference", 'NUMPAD_MINUS', 'PRESS', ctrl=True, alt=True)
+    kmi.active = True
+    addon_keymaps.append((km, kmi))
+
     # auto_operators
     kmi = km.keymap_items.new("object.boolean_auto_union", 'NUMPAD_PLUS', 'PRESS', ctrl=True, shift=True)
     kmi.active = True
@@ -348,6 +431,10 @@ def register():
     addon_keymaps.append((km, kmi))
 
     kmi = km.keymap_items.new("object.boolean_auto_slice", 'NUMPAD_SLASH', 'PRESS', ctrl=True, shift=True)
+    kmi.active = True
+    addon_keymaps.append((km, kmi))
+
+    kmi = km.keymap_items.new("object.boolean_auto_multi_difference", 'NUMPAD_MINUS', 'PRESS', ctrl=True, alt=True, shift=True)
     kmi.active = True
     addon_keymaps.append((km, kmi))
 

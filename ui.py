@@ -22,6 +22,7 @@ def boolean_operators_menu(self, context):
     col.operator("object.boolean_auto_union", text="Union", icon='SELECT_EXTEND')
     col.operator("object.boolean_auto_intersect", text="Intersect", icon='SELECT_INTERSECT')
     col.operator("object.boolean_auto_slice", text="Slice", icon='SELECT_DIFFERENCE')
+    col.operator("object.boolean_auto_multi_difference", text="Multi-Difference", icon='SELECT_SUBTRACT')
 
     col.separator()
     col.label(text="Brush Boolean")
@@ -29,6 +30,7 @@ def boolean_operators_menu(self, context):
     col.operator("object.boolean_brush_union", text="Union", icon='SELECT_EXTEND')
     col.operator("object.boolean_brush_intersect", text="Intersect", icon='SELECT_INTERSECT')
     col.operator("object.boolean_brush_slice", text="Slice", icon='SELECT_DIFFERENCE')
+    col.operator("object.boolean_brush_multi_difference", text="Multi-Difference", icon='SELECT_SUBTRACT')
 
 
 def boolean_extras_menu(self, context):
